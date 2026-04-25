@@ -1,0 +1,41 @@
+name: Refresh dashboard data
+
+on:
+  # Manual trigger from Actions tab — your "refresh now" button
+  workflow_dispatch:
+  # Auto-refresh every hour at :05 (gives CDEC time to ingest the top-of-hour reading)
+  schedule:
+    - cron: '5 * * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run refresh script
+        run: python3 refresh_dashboard.py
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html raw_cache/
+          if git diff --cached --quiet; then
+            echo "No data changes to commit."
+          else
+            git commit -m "Auto-refresh: $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git push
+          fi
